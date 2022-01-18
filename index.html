@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        ul {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        li {
+            border: 1px solid #eee;
+            touch-action: none;
+            user-select: none;
+            height: 50px;
+            list-style: none;
+
+            padding: 0 10px;
+            display: flex;
+            justify-content: space-between;
+
+            align-items: center;
+
+        }
+
+        .gray {
+            background-color: rgb(173, 173, 173) !important;
+        }
+
+        .clone-item {
+            position: fixed;
+            width: 100%;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            background: rgb(8, 191, 204);
+            border: 1px solid #d6d6d6;
+            opacity: 0.8;
+            list-style: none;
+            box-sizing: border-box;
+        }
+
+        .label {
+            width: 20px;
+            height: 20px;
+            background-color: rgb(68, 134, 255);
+            text-align: center;
+            border-radius: 50%;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <ul>
+        <li>
+            <div class="label">1</div>
+            <div class="value">选项A</div>
+            <div class="icon">
+                -
+            </div>
+        </li>
+        <li>
+            <div class="label">2</div>
+            <div class="value">选项B</div>
+            <div class="icon">
+                -
+            </div>
+        </li>
+        <li>
+            <div class="label">3</div>
+            <div class="value">选项C</div>
+            <div class="icon">
+                -
+            </div>
+        </li>
+        <li>
+            <div class="label">4</div>
+            <div class="value">选项D</div>
+            <div class="icon">
+                -
+            </div>
+        </li>
+    </ul>
+    <script>
+        // 拖拽排序类 传入 目标容器即可
+        class Draggable {
+            constructor(props) {
+                // 保存ul
+                this.parent = props.el;
+                // 是否在拖拽的标志
+                this.isMouseDown = false;
+                // 指针初始Y
+                this.lastMouseMoveY = 0
+                // 拖动差值
+                this.diffY = 0
+                // 拖拽元素
+                this.drag = {
+                    element: null,
+                    index: 0
+                };
+                // 目标元素
+                this.drop = {
+                    element: null,
+                    index: 0,
+                    lastIndex: 0
+                };
+
+                // 克隆元素
+                this.clone = {
+                    element: null,
+                    y: 0
+                };
+                // 所有元素的位置信息数组
+                this.rectList = [];
+                this.init();
+            }
+            // 初始化
+            init() {
+                this.getRect()
+                this.bindEventListener()
+            }
+            // 获取元素位置信息
+            getRect() {
+                this.rectList.length = 0;
+                for (const item of this.parent.children) {
+                    this.rectList.push(item.getBoundingClientRect());
+                }
+            }
+            // 修改成员方法this
+            bindEventListener() {
+                this.itemMouseDown = this.itemMouseDown.bind(this)
+                this.itemMouseRemove = this.itemMouseRemove.bind(this)
+                this.itemMouseUp = this.itemMouseUp.bind(this)
+                this.getRect = this.getRect.bind(this);
+                this.unbindEventListener = this.unbindEventListener.bind(this);
+
+                // 拖拽事件绑定 给ul
+                this.parent.addEventListener('pointerdown', this.itemMouseDown);
+                this.parent.addEventListener('pointermove', this.itemMouseRemove);
+                this.parent.addEventListener('pointerup', this.itemMouseUp);
+
+            }
+            // 指针按下逻辑
+            itemMouseDown(e) {
+                // 如果是鼠标点击，只响应左键
+                if (e.pointerType === 'mouse' && e.button !== 0) {
+                    return;
+                }
+                // ul不能参与拖拽
+                if (e.target === this.parent) {
+                    return;
+                }
+                // 处理target
+                let target = e.target.nodeName !== "LI" ? e.target.parentNode : e.target
+                this.isMouseDown = true
+                this.parent.setPointerCapture(e.pointerId);
+                this.lastMouseMoveY = e.clientY;
+                // 设置当前拖拽元素的信息
+                this.drag.element = target;
+                // 设置克隆元素
+                this.clone.element = this.drag.element.cloneNode(true);
+                this.clone.element.style.transition = 'none';
+
+                // 拿到当前元素在队列中的索引
+                const i = [].indexOf.call(this.parent.children, this.drag.element);
+                // 设置当前拖拽元素的信息
+                this.drag.index = i;
+
+                // 设置克隆元素的初始 y
+                this.clone.y = this.rectList[i].top;
+                this.clone.element.classList.add('clone-item');
+                this.clone.element.style.transform = 'translate3d(0px, ' + this.clone.y +
+                    'px, 0)';
+                this.clone.element.style.opacity = "0.8"
+                this.clone.element.style.background = "rgb(8, 191, 204)"
+
+                // 添加克隆元素
+                document.body.appendChild(this.clone.element);
+
+                // 隐藏当前拖拽元素
+                target.style.opacity = "0"
+
+                // 处理样式
+                document.querySelectorAll('.label').forEach(item => {
+                    item.classList.add('gray')
+                })
+                this.clone.element.querySelector('.label').classList.remove('gray');
+
+            }
+            // 指针移动
+            itemMouseRemove(e) {
+                if (this.isMouseDown) {
+                    // 设置拖拽差值
+                    this.diffY = e.clientY - this.lastMouseMoveY;
+                    this.lastMouseMoveY = e.clientY
+                    this.clone.y += this.diffY;
+
+                    // 处理拖拽位置
+                    this.clone.element.style.transform = 'translate3d(0px,' + (this.clone.y) +
+                        'px, 0px)'
+
+                    // 处理碰撞边界
+                    for (let i = 0; i < this.rectList.length; i++) {
+                        if (e.clientY > this.rectList[i].top && e.clientY < this.rectList[i].bottom) {
+                            this.drop.element = this.parent.children[i];
+                            this.drop.lastIndex = i;
+                            // 元素换位置 换文字 换索引
+                            if (this.drag.element !== this.drop.element) {
+                                // 两种情况
+                                if (this.drag.index < i) {
+                                    this.parent.insertBefore(this.drag.element, this.drop.element
+                                        .nextElementSibling);
+                                    this.drop.index = i - 1;
+                                    this.drag.element.querySelector('.label').textContent = i + 1
+                                    this.clone.element.querySelector('.label').textContent = i + 1
+                                    this.drop.element.querySelector('.label').textContent = i
+                                } else {
+                                    this.parent.insertBefore(this.drag.element, this.drop.element);
+                                    this.drop.index = i + 1;
+
+                                    this.drag.element.querySelector('.label').textContent = i + 1
+                                    this.clone.element.querySelector('.label').textContent = i + 1
+                                    this.drop.element.querySelector('.label').textContent = i + 2
+                                }
+
+                                // 处理样式 和索引
+                                this.drag.index = i;
+                                const dropRect = this.rectList[this.drop.index];
+                                const lastDropRect = this.rectList[this.drop.lastIndex];
+                                this.drop.element.style.transform = 'translate3d(0px, ' + (lastDropRect.top -
+                                    dropRect.top) + 'px, 0)';
+                                this.drop.element.style.transition = 'none';
+                                this.drop.element.offsetLeft;
+                                this.drop.element.style.transition = 'transform 150ms';
+                                this.drop.element.style.transform = 'translate3d(0px, 0px, 0px)';
+                            }
+                            break;
+                        }
+
+                    }
+
+                }
+            }
+            // 指针抬起
+            itemMouseUp() {
+                if (this.isMouseDown) {
+
+                    // 删除克隆元素 解绑事件 处理样式
+
+                    this.isMouseDown = false;
+                    this.clone.element.remove();
+                    document.querySelectorAll('.label').forEach(item => {
+                        item.classList.remove('gray')
+                    })
+                    const dragRect = this.rectList[this.drag.index];
+                    this.drag.element.style.opacity = "1"
+                    this.drag.element.style.transition = "none"
+                    this.drag.element.style.transform = 'translate3d(0px, ' + (this.clone.y - dragRect.top) +
+                        'px, 0)';
+                    this.drag.element.offsetLeft;
+                    this.drag.element.style.transition = 'transform 150ms';
+                    this.drag.element.style.transform = 'translate3d(0px, 0px, 0px)'
+                    this.unbindEventListener()
+                }
+            }
+            // 解绑事件
+            unbindEventListener() {
+                this.parent.removeEventListener('pointerdown', this.handlePointerdown);
+                this.parent.removeEventListener('pointermove', this.handlePointermove);
+                this.parent.removeEventListener('pointerup', this.handlePointerup);
+                this.parent.removeEventListener('pointercancel', this.handlePointercancel);
+            }
+        }
+
+        new Draggable({
+            el: document.querySelector('ul')
+        })
+    </script>
+</body>
+
+</html>
